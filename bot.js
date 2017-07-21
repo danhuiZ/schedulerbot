@@ -25,9 +25,9 @@ function imReply(data) {
         },
         {
           "name": "confirm",
-          "text": "No",
+          "text": "Cancel",
           "type": "button",
-          "value": "no"
+          "value": "cancel"
         },
       ]
     }
@@ -81,7 +81,6 @@ rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
         params: {
           v: 20150910,
           lang: 'en',
-          // timezone: '2017-07-17T16:58:21-0700',
           query: message.text,
           sessionId: message.user
         },
@@ -91,29 +90,42 @@ rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
       })
       .then(function( { data } ) {
         console.log("DATA", data, "DATA-messages", data.result.fulfillment.messages);
+
         if(!data.result.actionIncomplete && data.result.parameters.date && data.result.parameters.subject ) {
           // rtm.sendMessage(data.result.fulfillment.speech, message.channel);
-          pendingState = data.result.parameters;
-          web.chat.postMessage(message.channel, 'Chill homie', imReply(data), function(err, res) {
-            if (err) {
-              console.log('Error:', err);
-            } else {
-              console.log('Message sent: ', res);
-            }
-          });
+          user.pendingState.date = data.result.parameters.date;
+          user.pendingState.subject = data.result.parameters.subject;
+          user.save()
+          .then(function(){
+            web.chat.postMessage(message.channel, 'Chill homie', imReply(data), function(err, res) {
+              if (err) {
+                console.log('Error:', err);
+              } else {
+                console.log('Message sent: ', res);
+              }
+            });
+          })
+
         } else if(data.result.parameters.date && !data.result.parameters.subject){
           console.log('NO SUBJECT');
-          pendingState.date = data.result.parameters.date;
-          rtm.sendMessage(data.result.fulfillment.speech, message.channel);
+          user.pendingState.date = data.result.parameters.date;
+          user.save()
+          .then(function() {
+            rtm.sendMessage(data.result.fulfillment.speech, message.channel);
+          })
+
         } else if(data.result.parameters.subject && !data.result.parameters.date){
           console.log('NO DATE');
-          pendingState.subject = data.result.parameters.subject;
-          rtm.sendMessage(data.result.fulfillment.speech, message.channel);
+          user.pendingState.subject = data.result.parameters.subject;
+          user.save()
+          .then(function() {
+            rtm.sendMessage(data.result.fulfillment.speech, message.channel);
+          })
+
         } else {
           rtm.sendMessage(data.result.fulfillment.speech, message.channel);
         }
-        console.log("HOW IS PENDING STATE LOOKING RIGHT NOW? HMM?", pendingState);
-        return pendingState;
+        return;
       })
       .catch(function(err) {
         console.log("ERROR", err);
